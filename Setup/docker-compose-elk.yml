@@ -70,28 +70,6 @@ services:
             mode: global
             restart_policy: {condition: any}
             update_config: {failure_action: rollback}
-    elk:
-        image: 'securebrowsing/shield-elk:latest'
-#        ports:
-#            - '5601:5601'
-#            - '9200:9200'
-#            - '5014:5014'
-        networks:
-            - shield
-        environment:
-            - 'TZ=UTC'
-            - 'REINDEX_RUNINNG_INTERVAL=30s'
-            - 'CLEAN_RUNINNG_INTERVAL=12h'
-            - 'LOGSPOUT=ignore'
-            - 'HEAP_SIZE=2g'
-        deploy:
-            replicas: 1
-            restart_policy: {condition: any}
-            placement: {constraints: [node.labels.management==yes]}
-            update_config: {failure_action: rollback}
-            resources: {limits: {memory: 4GB, cpus: '2'}}
-        volumes:
-            - 'elastic:/opt/elasticsearch/data'
     logspout:
         image: 'securebrowsing/shield-logspout:latest'
         networks:
@@ -169,30 +147,6 @@ services:
             restart_policy: {condition: any}
             placement: {constraints: [node.labels.management==yes]}
             resources: {limits: {memory: 500MB, cpus: '0.5'}}
-    icap-server:
-        image: 'securebrowsing/icap-server:latest'
-        # user: nobody
-        hostname: icap-server
-        environment:
-            - 'TZ=UTC'
-            - 'NODE_ENV=production'
-            - 'SHIELD_VER=8.0.0.latest'
-            - 'SHIELD_IP=IP_ADDRESS'
-            - 'LOGSTASH_FIELDS=service=icap'
-            #- 'SHIELD_WATERMARK=TRUE'
-        ulimits:
-            nofile: {soft: 65535, hard: 65535}
-        networks:
-            - shield
-        ports:
-            - '1344:1344'
-        deploy:
-            mode: replicated
-            replicas: 1
-            update_config: {failure_action: rollback}
-            restart_policy: {condition: any}
-            placement: {constraints: [node.labels.shield_core==yes]}
-            resources: {limits: {memory: 500MB, cpus: '1'}}
     broker-server:
         image: 'securebrowsing/broker-server:latest'
         # user: nobody
@@ -328,22 +282,7 @@ services:
             resources: {limits: {memory: 512MB, cpus: '0.5'}}
         environment:
             - 'TZ=UTC'
-    authproxy:
-        image: 'securebrowsing/shield-authproxy:latest'
-        hostname: authproxy
-        deploy:
-            mode: global
-            restart_policy: {condition: any}
-            update_config: {failure_action: rollback}
-            placement: {constraints: [node.labels.management==yes]}
-        networks:
-            - shield
-        ports:
-            - {target: 3128, published: 3128, protocol: tcp, mode: host}
-        environment:
-            - 'TZ=UTC'
-            - 'NODE_ENV=production'
-            - 'LOGSTASH_FIELDS=service=authproxy'
+    
     web-service:
         image: 'securebrowsing/shield-web-service:latest'
         hostname: web-service
@@ -414,17 +353,12 @@ services:
             placement: {constraints: [node.labels.management==yes]}
             resources: {limits: {memory: 100MB, cpus: '0.5'}}
 volumes:
-    elastic:
     portainer:
     admin:
 
 networks:
-    shield:
+    shield-farm:
         driver: overlay
         ipam:
             driver: default
             config: [{subnet: 10.20.0.0/16}]
-
-secrets:
-    shield-system-id:
-        external: true
