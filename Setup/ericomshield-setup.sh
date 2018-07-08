@@ -816,7 +816,8 @@ update_sysctl
 
 ./prepare-node.sh
 
-prepare_yml
+prepare_yml "$ES_YML_CORE_FILE"
+prepare_yml "$ES_YML_RBF_FILE"
 
 if [ "$UPDATE" == false ]; then
     AM_I_LEADER=true #if new installation, i am the leader
@@ -838,7 +839,8 @@ else # Update
         MNG_NODES_COUNT=$(docker node ls -f "role=manager" | grep -c Ready)
         CONSUL_GLOBAL=$(docker service ls | grep -c "consul-server    global")
         if [ "$MNG_NODES_COUNT" -gt 1 ]; then
-            switch_to_multi_node
+            switch_to_multi_node "$ES_YML_CORE_FILE"
+            switch_to_multi_node "$ES_YML_RBF_FILE"
             if [ "$CONSUL_GLOBAL" -ne 1 ]; then
                 if [ "$AM_I_LEADER" == true ]; then
                     STOP_SHIELD=true
