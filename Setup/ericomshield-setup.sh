@@ -605,11 +605,11 @@ function get_shield_install_files() {
     fi
     curl -s -S -o "$ES_YML_CORE_FILE" "$ES_repo_core_yml"
 
-    echo "Getting $ES_YML_SBF_FILE"
-    if [ -f "$ES_YML_SBF_FILE" ]; then
-        mv "$ES_YML_SBF_FILE" "$ES_YML_SBF_FILE".bak
+    echo "Getting $ES_YML_RBF_FILE"
+    if [ -f "$ES_YML_RBF_FILE" ]; then
+        mv "$ES_YML_RBF_FILE" "$ES_YML_RBF_FILE".bak
     fi
-    curl -s -S -o "$ES_YML_SBF_FILE" "$ES_repo_rbf_yml"
+    curl -s -S -o "$ES_YML_RBF_FILE" "$ES_repo_rbf_yml"
 
     if [ $ES_POCKET == true ]; then
         echo "Getting $ES_repo_pocket_yml"
