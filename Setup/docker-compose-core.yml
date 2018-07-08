@@ -1,13 +1,13 @@
 version: '3.3'
 
 # Ericom Shield Stack Description
-# YML file for Rel-18.07
+# YML file for Rel-18.08 Core Components
 
 services:
     dns:
         image: 'securebrowsing/shield-dns:latest'
         networks:
-            - shield
+            - shield-core
         hostname: dns
         deploy:
             replicas: 2
@@ -24,7 +24,7 @@ services:
         volumes:
             - '/var/run/docker.sock:/var/run/docker.sock'
         networks:
-            - shield
+            - shield-core
         hostname: netdata
         ports:
             - {target: 19999, published: 8383, protocol: tcp}
@@ -42,7 +42,7 @@ services:
         volumes:
             - '/var/run/docker.sock:/var/run/docker.sock'
         networks:
-            - shield
+            - shield-core
         hostname: maintenance
         deploy:
             mode: global
@@ -57,7 +57,7 @@ services:
     collector:
         image: 'securebrowsing/shield-collector:latest'
         networks:
-            - shield
+            - shield-core
         volumes:
             - '/var/run/docker.sock:/var/run/docker.sock'
             - '/dev:/hostdev'
@@ -77,7 +77,7 @@ services:
 #            - '9200:9200'
 #            - '5014:5014'
         networks:
-            - shield
+            - shield-core
         environment:
             - 'TZ=UTC'
             - 'REINDEX_RUNINNG_INTERVAL=30s'
@@ -95,7 +95,7 @@ services:
     logspout:
         image: 'securebrowsing/shield-logspout:latest'
         networks:
-            - shield
+            - shield-core
         volumes:
             - '/etc/hostname:/etc/host_hostname:ro'
             - '/var/run/docker.sock:/var/run/docker.sock'
@@ -110,7 +110,7 @@ services:
     consul-server:
         image: 'securebrowsing/shield-configuration:latest'
         networks:
-            - shield
+            - shield-core
         deploy:
             mode: replicated   #single node
             replicas: 5        #single node
@@ -130,7 +130,7 @@ services:
     consul:
         image: 'securebrowsing/shield-consul-agent:latest'
         networks:
-            - shield
+            - shield-core
         #Published only for Dev    
         ports:
             - '8500:8500'
@@ -163,7 +163,7 @@ services:
             - 'admin:/data/consul'
             - '/var/run/docker.sock:/var/run/docker.sock'
         networks:
-            - shield
+            - shield-core
         deploy:
             mode: replicated
             replicas: 1
@@ -185,7 +185,7 @@ services:
         ulimits:
             nofile: {soft: 65535, hard: 65535}
         networks:
-            - shield
+            - shield-core
         ports:
             - '1344:1344'
         deploy:
@@ -214,51 +214,16 @@ services:
             - 'LOGSTASH_FIELDS=service=broker'
             - 'SHIELD_VER=8.0.0.latest'
         networks:
-            - shield
+            - shield-core
         secrets:
             - shield-system-id
-    shield-browser:
-        image: 'securebrowsing/shield-cef:latest'
-        user: user
-        ulimits:
-            nice: -20
-            rtprio: 10
-        labels:
-            - com.ericom.browser
-        environment:
-            - 'TZ=UTC'
-            #- 'FPS=25'
-            #- 'DEBUG_REMOTE_SITE=true'
-            #- 'DISPOSE_BROWSER=true'
-            #- 'RUN_WITH_DEBUGGER=false'
-            #- 'EXTProxyAddress='
-            #- 'DEBUG_SEND_LOG_TO_AN=true'
-            - 'SHIELD_NODE_NAME={{.Node.Hostname}}'
-            - 'SHIELD_SERVICE_NAME={{.Service.Name}}'
-            - 'PERF_STATS=true'
-            - 'LOGSTASH_FIELDS=service=browser'
-        networks:
-            - shield
-        deploy:
-            mode: replicated
-            replicas: 20
-            endpoint_mode: dnsrr
-            update_config: {parallelism: 8, delay: 10s}
-            restart_policy: {condition: any}
-            resources: {limits: {memory: 1GB, cpus: '2'}, reservations: {cpus: '0.2', memory: 150MB}}
-            placement: {constraints: [node.labels.browser==yes]}
-        volumes:
-            - {type: tmpfs, target: /dev/shm}
-            - {type: tmpfs, target: /home}
-            - {type: tmpfs, target: /tmp}
-            - {type: bind, target: /dev/shm/xorg, source: /media/containershm}
     proxy-server:
         image: 'securebrowsing/proxy-server:latest'
         hostname: proxy-server
         ulimits:
             nofile: {soft: 65535, hard: 65535}
         networks:
-            - shield
+            - shield-core
         environment:
             - 'TZ=UTC'
             - 'SSLEXCLUSION=true'
@@ -271,58 +236,15 @@ services:
             update_config: {parallelism: 1, delay: 10s, failure_action: rollback}
             placement: {constraints: [node.labels.shield_core==yes]}
             resources: {limits: {memory: 500MB, cpus: '1'}}
-    ext-proxy:
-        image: 'securebrowsing/extproxy:latest'
-        hostname: ext-proxy
-        ulimits:
-            nofile: {soft: 65535, hard: 65535}
-        networks:
-            - shield
-        deploy:
-            mode: replicated
-            replicas: 2
-            placement: {constraints: [node.labels.browser==yes]}
-            resources: {limits: {memory: 1024MB, cpus: '1'}}
-        environment:
-            - 'TZ=UTC'
-    ext-proxy-noadblock:
-        image: 'securebrowsing/extproxy:latest'
-        hostname: ext-proxy-noadblock
-        ulimits:
-            nofile: {soft: 65535, hard: 65535}
-        networks:
-            - shield
-        deploy:
-            mode: replicated
-            replicas: 2
-            placement: {constraints: [node.labels.browser==yes]}
-            resources: {limits: {memory: 1024MB, cpus: '1'}}
-        environment:
-            - 'TZ=UTC'
-            - 'ADDBLOCK=no'
-    speedtest:
-        image: 'securebrowsing/speedtest:latest'
-        hostname: speedtest
-        ports:
-            - '8185:8185'
-        networks:
-            - shield
-        deploy:
-            mode: replicated
-            replicas: 1
-            placement: {constraints: [node.labels.browser==yes]}
-            resources: {limits: {memory: 512MB, cpus: '0.5'}}
-        environment:
-            - 'TZ=UTC'
     notifier:
         image: 'securebrowsing/shield-notifier:latest'
         hostname: notifier
         networks:
-            - shield
+            - shield-core
         deploy:
             mode: replicated
             replicas: 1
-            placement: {constraints: [node.labels.browser==yes]}
+            placement: {constraints: [node.labels.management==yes]}
             resources: {limits: {memory: 512MB, cpus: '0.5'}}
         environment:
             - 'TZ=UTC'
@@ -336,7 +258,7 @@ services:
             placement: {constraints: [node.labels.management==yes]}
             resources: {limits: {memory: 1GB, cpus: '1'}}
         networks:
-            - shield
+            - shield-core
         ports:
             - {target: 3128, published: 3128, protocol: tcp, mode: host}
         environment:
@@ -349,7 +271,7 @@ services:
         ports:
             - '80:1345'
         networks:
-            - shield
+            - shield-core
         environment:
             - 'TZ=UTC'
             - 'SHIELD_IP=IP_ADDRESS'
@@ -368,7 +290,7 @@ services:
             - 'NODE_ENV=production'
             - 'LOGSTASH_FIELDS=service=cdrdispatcher'
         networks:
-            - shield
+            - shield-core
         deploy:
             mode: replicated
             replicas: 2
@@ -385,7 +307,7 @@ services:
             - 'NODE_ENV=production'
             - 'LOGSTASH_FIELDS=service=cdrcontroller'
         networks:
-            - shield
+            - shield-core
         deploy:
             mode: replicated
             replicas: 1
@@ -409,7 +331,7 @@ services:
             - 'TZ=UTC'
             - 'LOGSTASH_FIELDS=service=portainer'
         networks:
-            - shield
+            - shield-core
         deploy:
             restart_policy: {condition: any}
             update_config: {failure_action: rollback}
@@ -421,7 +343,7 @@ volumes:
     admin:
 
 networks:
-    shield:
+    shield-core:
         driver: overlay
         ipam:
             driver: default

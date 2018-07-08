@@ -6,11 +6,12 @@
 ###################################LO##BH###
 JENKINS=
 NETWORK_INTERFACE='eth0'
-STACK_NAME='shield'
-ES_YML_FILE=
+SHIELD_CORE_STACK_NAME='shield-core'
+SHIELD_RBF_STACK_NAME='shield-rbf'
+ES_YML_CORE_FILE="$ES_PATH/docker-compose-core.yml"
+ES_YML_RBF_FILE="$ES_PATH/docker-compose-browsers-farm.yml"
 HOST=$(hostname)
 SECRET_UID="shield-system-id"
-ES_NO_BROWSERS_LABEL=false
 
 export UPSTREAM_DNS_SERVERS="$(grep -oP 'nameserver\s+\K.+' /etc/resolv.conf | cut -d, -f2- | paste -sd,)"
 PROXY_ENV_FILE="proxy-server.env"
@@ -25,10 +26,6 @@ fi
 while [ $# -ne 0 ]; do
     arg="$1"
     case "$arg" in
-    -no-browser)
-        ES_NO_BROWSERS_LABEL=true
-        echo "Multi-Machine: No Browser Label"
-        ;;
     #        -usage)
     -j | --jenkins)
         JENKINS="yes"
@@ -124,8 +121,6 @@ function make_in_memory_volume() {
     fi
 }
 
-ES_YML_FILE=docker-compose.yml
-
 SWARM=$(test_swarm_exists)
 if [ -z "$SWARM" ]; then
     echo '#######################Start create swarm#####################'
@@ -158,19 +153,15 @@ create_proxy_env_file
 
 NODES_COUNT=$(docker node ls | grep -c Ready)
 if [ "$NODES_COUNT" -eq 1 ]; then
-    if [ "$ES_NO_BROWSERS_LABEL" == true ]; then
-        echo "***************     Adding Labels: management, shield_core"
-        retry_on_failure docker node update --label-add shield_core=yes --label-add management=yes $LEADER_HOST
-    else
-        echo "***************     Adding Labels: management, shield_core, browser"
-        retry_on_failure docker node update --label-add browser=yes --label-add shield_core=yes --label-add management=yes $LEADER_HOST
-    fi
+    echo "***************     Adding Labels: management, shield_core, browser"
+    retry_on_failure docker node update --label-add browser=yes --label-add shield_core=yes --label-add management=yes $LEADER_HOST
 fi
 
 am_i_leader
 
 if [ "$AM_I_LEADER" == true ]; then
-    retry_on_failure docker stack deploy -c $ES_YML_FILE $STACK_NAME --with-registry-auth
+    retry_on_failure docker stack deploy -c $ES_YML_CORE_FILE $SHIELD_CORE_STACK_NAME --with-registry-auth
+    retry_on_failure docker stack deploy -c $ES_YML_RBF_FILE $SHIELD_RBF_STACK_NAME --with-registry-auth    
 else
     echo "Please run this command on the leader: $LEADER_HOST"
 fi

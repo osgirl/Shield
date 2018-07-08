@@ -15,7 +15,6 @@ fi
 ES_PATH="/usr/local/ericomshield"
 ES_BACKUP_PATH="/usr/local/ericomshield/backup"
 LOGFILE="$ES_PATH/ericomshield.log"
-STACK_NAME=shield
 DOCKER_DEFAULT_VERSION="18.03.1"
 DOCKER_VERSION=""
 UPDATE=false
@@ -25,8 +24,9 @@ NOT_FOUND_STR="404: Not Found"
 ES_AUTO_UPDATE_FILE="$ES_PATH/.autoupdate"
 ES_REPO_FILE="$ES_PATH/ericomshield-repo.sh"
 ES_PRE_CHECK_FILE="$ES_PATH/shield-pre-install-check.sh"
-ES_YML_FILE="$ES_PATH/docker-compose.yml"
-ES_YML_FILE_BAK="$ES_PATH/docker-compose_yml.bak"
+STACK_NAME='shield' #(shield prefix works for both)
+ES_YML_CORE_FILE="$ES_PATH/docker-compose-core.yml"
+ES_YML_RBF_FILE="$ES_PATH/docker-compose-browsers-farm.yml"
 ES_VER_FILE="$ES_PATH/shield-version.txt"
 ES_VER_FILE_NEW="$ES_PATH/shield-version-new.txt"
 ES_VER_FILE_BAK="$ES_PATH/shield-version.bak"
@@ -440,7 +440,7 @@ function install_docker() {
         #Stop shield (if running)
         if [ "$ES_RUN_DEPLOY" == true ] && [ -x "/usr/bin/docker" ] && [ $(docker stack ls | grep -c $STACK_NAME) -ge 1 ]; then
             log_message "Stopping Ericom Shield for Update (Docker) (Downtime)"
-            docker stack rm $STACK_NAME
+            ./stop.sh
         fi
 
         apt-cache policy docker-ce
@@ -518,7 +518,8 @@ function add_aliases() {
 }
 
 function prepare_yml() {
-    echo "Preparing yml file (Containers build number)"
+    ES_CUR_YML_FILE="$1"
+    echo "Preparing yml file:$ES_CUR_YML_FILE (Containers build number)"
     while read -r ver; do
         if [ "${ver:0:1}" == '#' ]; then
             echo "$ver"
@@ -527,24 +528,26 @@ function prepare_yml() {
             comp_ver=$(echo "$ver" | awk '{print $2}')
             if [ ! -z "$pattern_ver" ]; then
                 #echo "Changing ver: $comp_ver"
-                sed -i'' "s/$pattern_ver/$comp_ver/g" $ES_YML_FILE
+                sed -i'' "s/$pattern_ver/$comp_ver/g" $ES_CUR_YML_FILE
             fi
         fi
     done <"$ES_VER_FILE"
 
-    #echo "  sed -i'' 's/IP_ADDRESS/$MY_IP/g' $ES_YML_FILE"
-    sed -i'' "s/IP_ADDRESS/$MY_IP/g" $ES_YML_FILE
+    #echo "  sed -i'' 's/IP_ADDRESS/$MY_IP/g' $ES_CUR_YML_FILE"
+    sed -i'' "s/IP_ADDRESS/$MY_IP/g" $ES_CUR_YML_FILE
 
     local TZ="$( (test -r /etc/timezone && cat /etc/timezone) || echo UTC)"
-    sed -i'' "s#TZ=UTC#TZ=${TZ}#g" $ES_YML_FILE
+    sed -i'' "s#TZ=UTC#TZ=${TZ}#g" $ES_CUR_YML_FILE
 }
 
 function switch_to_multi_node() {
-    if [ $(grep -c '#[[:space:]]*mode: global[[:space:]]*#multi node' $ES_YML_FILE) -eq 1 ]; then
+    ES_CUR_YML_FILE="$1"
+
+    if [ $(grep -c '#[[:space:]]*mode: global[[:space:]]*#multi node' $ES_CUR_YML_FILE) -eq 1 ]; then
         echo "Switching to Multi-Node (consul-server -> global)"
-        sed -i'' 's/\(mode: replicated[[:space:]]*#single node\)/#\1/g' $ES_YML_FILE
-        sed -i'' 's/\(replicas: 5[[:space:]]*#single node\)/#\1/g' $ES_YML_FILE
-        sed -i'' 's/#\([[:space:]]*mode: global[[:space:]]*#multi node\)/\1/g' $ES_YML_FILE
+        sed -i'' 's/\(mode: replicated[[:space:]]*#single node\)/#\1/g' $ES_CUR_YML_FILE
+        sed -i'' 's/\(replicas: 5[[:space:]]*#single node\)/#\1/g' $ES_CUR_YML_FILE
+        sed -i'' 's/#\([[:space:]]*mode: global[[:space:]]*#multi node\)/\1/g' $ES_CUR_YML_FILE
         SWITCHED_TO_MULTINODE=true
     fi
 }
@@ -596,11 +599,17 @@ function get_shield_install_files() {
     fi
     mv "$ES_VER_FILE_NEW" "$ES_VER_FILE"
 
-    echo "Getting $ES_YML_FILE"
-    if [ -f "$ES_YML_FILE" ]; then
-        mv "$ES_YML_FILE" "$ES_YML_FILE_BAK"
+    echo "Getting $ES_YML_CORE_FILE"
+    if [ -f "$ES_YML_CORE_FILE" ]; then
+        mv "$ES_YML_CORE_FILE" "$ES_YML_CORE_FILE".bak
     fi
-    curl -s -S -o "$ES_YML_FILE" "$ES_repo_yml"
+    curl -s -S -o "$ES_YML_CORE_FILE" "$ES_repo_core_yml"
+
+    echo "Getting $ES_YML_SBF_FILE"
+    if [ -f "$ES_YML_SBF_FILE" ]; then
+        mv "$ES_YML_SBF_FILE" "$ES_YML_SBF_FILE".bak
+    fi
+    curl -s -S -o "$ES_YML_SBF_FILE" "$ES_repo_sbf_yml"
 
     if [ $ES_POCKET == true ]; then
         echo "Getting $ES_repo_pocket_yml"
@@ -895,7 +904,7 @@ fi
 
 systemctl start ericomshield-updater.service
 
-Version=$(grep SHIELD_VER "$ES_YML_FILE")
+Version=$(grep SHIELD_VER "$ES_YML_CORE_FILE")
 
 if [ $SUCCESS == false ]; then
     echo "Something went wrong. Timeout was reached during installation. Please run ./status.sh and check the log file: $LOGFILE."
