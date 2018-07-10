@@ -802,7 +802,7 @@ fi
 
 if [ "$ES_FORCE" == false ]; then
     source $ES_PRE_CHECK_FILE
-    echo "***************     Running pre-install-check ..."
+    echo "***************     Running pre-install-check (2) ..."
     perform_env_test
     if [ "$?" -ne "0" ]; then
         failed_to_install_cleaner "Shield pre-install-check failed!"

@@ -8,6 +8,7 @@ JENKINS=
 NETWORK_INTERFACE='eth0'
 SHIELD_CORE_STACK_NAME='shield-core'
 SHIELD_RBF_STACK_NAME='shield-rbf'
+ES_PATH=/usr/local/ericomshield
 ES_YML_CORE_FILE="$ES_PATH/docker-compose-core.yml"
 ES_YML_RBF_FILE="$ES_PATH/docker-compose-browsers-farm.yml"
 HOST=$(hostname)
@@ -15,7 +16,6 @@ SECRET_UID="shield-system-id"
 
 export UPSTREAM_DNS_SERVERS="$(grep -oP 'nameserver\s+\K.+' /etc/resolv.conf | cut -d, -f2- | paste -sd,)"
 PROXY_ENV_FILE="proxy-server.env"
-ES_PATH=/usr/local/ericomshield
 CONSUL_BACKUP_PATH="$ES_PATH/backup"
 DOCKER_SWARMEXEC_TAG=180128-09.08-1217
 
@@ -160,7 +160,9 @@ fi
 am_i_leader
 
 if [ "$AM_I_LEADER" == true ]; then
+    echo "Deploying $SHIELD_CORE_STACK_NAME Stack"
     retry_on_failure docker stack deploy -c $ES_YML_CORE_FILE $SHIELD_CORE_STACK_NAME --with-registry-auth
+    echo "Deploying $SHIELD_RBF_STACK_NAME Stack"    
     retry_on_failure docker stack deploy -c $ES_YML_RBF_FILE $SHIELD_RBF_STACK_NAME --with-registry-auth    
 else
     echo "Please run this command on the leader: $LEADER_HOST"
