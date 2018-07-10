@@ -582,6 +582,7 @@ function get_shield_install_files() {
     if [ -f "$ES_VER_FILE" ]; then
         if [ "$(diff "$ES_VER_FILE" "$ES_VER_FILE_NEW" | wc -l)" -eq 0 ]; then
             echo "Your EricomShield System is Up to date ($SHIELD_VERSION)"
+            rm "$ES_VER_FILE_NEW"
             exit 0
         else
             SHIELD_CUR_VERSION=$(grep -r 'SHIELD_VER' "$ES_VER_FILE" | cut -d' ' -f2)
