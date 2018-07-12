@@ -236,6 +236,20 @@ services:
             update_config: {parallelism: 1, delay: 10s, failure_action: rollback}
             placement: {constraints: [node.labels.shield_core==yes]}
             resources: {limits: {memory: 500MB, cpus: '1'}}
+    ext-proxy:
+        image: 'securebrowsing/extproxy:latest'
+        hostname: ext-proxy
+        ulimits:
+            nofile: {soft: 65535, hard: 65535}
+        networks:
+            - shield-rbf
+        deploy:
+            mode: replicated
+            replicas: 2
+            placement: {constraints: [node.labels.shield_core==yes]}
+            resources: {limits: {memory: 1024MB, cpus: '1'}}
+        environment:
+            - 'TZ=UTC'
     notifier:
         image: 'securebrowsing/shield-notifier:latest'
         hostname: notifier
